@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenSandbox.Abstractions\OpenSandbox.Abstractions.csproj" />
+    <ProjectReference Include="..\OpenSandbox.Runtime.Docker\OpenSandbox.Runtime.Docker.csproj" />
+    <ProjectReference Include="..\OpenSandbox.Store.FileSystem\OpenSandbox.Store.FileSystem.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
+  </ItemGroup>
+</Project>

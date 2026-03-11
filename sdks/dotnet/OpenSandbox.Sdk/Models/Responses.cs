@@ -1,0 +1,57 @@
+namespace OpenSandbox.Sdk.Models;
+
+public sealed class Sandbox
+{
+    public string Id { get; set; } = string.Empty;
+    public SandboxImageReference? Image { get; set; }
+    public List<string> Entrypoint { get; set; } = new();
+    public Dictionary<string, string>? Metadata { get; set; }
+    public SandboxStatus? Status { get; set; }
+    public DateTimeOffset? CreatedAt { get; set; }
+    public DateTimeOffset? ExpiresAt { get; set; }
+}
+
+public sealed class CreatedSandbox
+{
+    public string Id { get; set; } = string.Empty;
+    public SandboxStatus? Status { get; set; }
+    public Dictionary<string, string>? Metadata { get; set; }
+    public DateTimeOffset? CreatedAt { get; set; }
+    public DateTimeOffset? ExpiresAt { get; set; }
+    public List<string> Entrypoint { get; set; } = new();
+}
+
+public sealed class ListSandboxesResult
+{
+    public List<Sandbox> Items { get; set; } = new();
+    public PaginationInfo Pagination { get; set; } = new();
+}
+
+public sealed class SandboxUsage
+{
+    public decimal? CpuPercent { get; set; }
+    public decimal? MemoryPercent { get; set; }
+    public string? CpuLimit { get; set; }
+    public string? MemoryUsage { get; set; }
+    public string? MemoryLimit { get; set; }
+    public DateTimeOffset CollectedAt { get; set; }
+}
+
+public sealed class SandboxEndpoint
+{
+    public string? Endpoint { get; set; }
+    public string? Url { get; set; }
+    public Dictionary<string, string>? Headers { get; set; }
+}
+
+public sealed class CommandExecutionResult
+{
+    public int ExitCode { get; set; }
+    public string StdOut { get; set; } = string.Empty;
+    public string StdErr { get; set; } = string.Empty;
+}
+
+public sealed class RenewSandboxExpirationResult
+{
+    public DateTimeOffset? ExpiresAt { get; set; }
+}

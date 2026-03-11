@@ -1,0 +1,20 @@
+<Solution>
+  <Folder Name="/samples/" />
+  <Folder Name="/samples/dotnet/">
+    <Project Path="samples/dotnet/OpenClaw.Sample/OpenClaw.Sample.csproj" />
+    <Project Path="samples/dotnet/OpenSandbox.Sample/OpenSandbox.Sample.csproj" />
+  </Folder>
+  <Folder Name="/sdks/" />
+  <Folder Name="/sdks/dotnet/">
+    <Project Path="sdks/dotnet/OpenSandbox.Sdk/OpenSandbox.Sdk.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/OpenSandbox.Abstractions/OpenSandbox.Abstractions.csproj" />
+    <Project Path="src/OpenSandbox.Runtime.Docker/OpenSandbox.Runtime.Docker.csproj" />
+    <Project Path="src/OpenSandbox.Server/OpenSandbox.Server.csproj" />
+    <Project Path="src/OpenSandbox.Store.FileSystem/OpenSandbox.Store.FileSystem.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OpenSandbox.Sdk.Tests/OpenSandbox.Sdk.Tests.csproj" />
+  </Folder>
+</Solution>
