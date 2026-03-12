@@ -11,10 +11,12 @@
   <Folder Name="/src/">
     <Project Path="src/OpenSandbox.Abstractions/OpenSandbox.Abstractions.csproj" />
     <Project Path="src/OpenSandbox.Runtime.Docker/OpenSandbox.Runtime.Docker.csproj" />
+    <Project Path="src/OpenSandbox.Runtime.Kubernetes/OpenSandbox.Runtime.Kubernetes.csproj" />
     <Project Path="src/OpenSandbox.Server/OpenSandbox.Server.csproj" />
     <Project Path="src/OpenSandbox.Store.FileSystem/OpenSandbox.Store.FileSystem.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/OpenSandbox.Runtime.Kubernetes.Tests/OpenSandbox.Runtime.Kubernetes.Tests.csproj" />
     <Project Path="tests/OpenSandbox.Sdk.Tests/OpenSandbox.Sdk.Tests.csproj" />
   </Folder>
 </Solution>

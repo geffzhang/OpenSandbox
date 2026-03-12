@@ -7,6 +7,7 @@
   <ItemGroup>
     <ProjectReference Include="..\OpenSandbox.Abstractions\OpenSandbox.Abstractions.csproj" />
     <ProjectReference Include="..\OpenSandbox.Runtime.Docker\OpenSandbox.Runtime.Docker.csproj" />
+    <ProjectReference Include="..\OpenSandbox.Runtime.Kubernetes\OpenSandbox.Runtime.Kubernetes.csproj" />
     <ProjectReference Include="..\OpenSandbox.Store.FileSystem\OpenSandbox.Store.FileSystem.csproj" />
   </ItemGroup>
 
