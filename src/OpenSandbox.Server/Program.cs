@@ -5,6 +5,8 @@ using Microsoft.Extensions.Options;
 using OpenSandbox.Abstractions.Services;
 using OpenSandbox.Runtime.Docker;
 using OpenSandbox.Runtime.Docker.Options;
+using OpenSandbox.Runtime.Kubernetes;
+using OpenSandbox.Runtime.Kubernetes.Options;
 using OpenSandbox.Server.Contracts;
 using OpenSandbox.Server.Options;
 using OpenSandbox.Server.Proxy;
@@ -16,10 +18,22 @@ using Yarp.ReverseProxy.Forwarder;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<OpenSandboxServerOptions>(builder.Configuration.GetSection(OpenSandboxServerOptions.SectionName));
+builder.Services.Configure<RuntimeOptions>(builder.Configuration.GetSection(RuntimeOptions.SectionName));
 builder.Services.Configure<DockerRuntimeOptions>(builder.Configuration.GetSection(DockerRuntimeOptions.SectionName));
+builder.Services.Configure<KubernetesRuntimeOptions>(builder.Configuration.GetSection(KubernetesRuntimeOptions.SectionName));
 builder.Services.Configure<FileSystemStoreOptions>(builder.Configuration.GetSection(FileSystemStoreOptions.SectionName));
 builder.Services.AddSingleton<ISandboxStore, FileSystemSandboxStore>();
-builder.Services.AddSingleton<ISandboxRuntime, DockerSandboxRuntime>();
+
+var runtimeType = builder.Configuration.GetSection(RuntimeOptions.SectionName).GetValue<string>("Type") ?? "docker";
+if (string.Equals(runtimeType, "kubernetes", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddKubernetesRuntime();
+}
+else
+{
+    builder.Services.AddSingleton<ISandboxRuntime, DockerSandboxRuntime>();
+}
+
 builder.Services.AddSingleton<OpenSandboxService>();
 builder.Services.AddHostedService<SandboxExpirationBackgroundService>();
 builder.Services.AddHealthChecks();
