@@ -3,7 +3,7 @@ namespace OpenSandbox.Sdk;
 public sealed class OpenSandboxClientOptions
 {
     public string BaseUrl { get; set; } = string.Empty;
-    public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(30);
+    public TimeSpan Timeout { get; set; } = System.Threading.Timeout.InfiniteTimeSpan;
     public TimeSpan WebSocketKeepAliveInterval { get; set; } = TimeSpan.FromSeconds(20);
     public TimeSpan TerminalConnectTimeout { get; set; } = TimeSpan.FromSeconds(30);
     public OpenSandboxAuthenticationMode AuthenticationMode { get; set; } = OpenSandboxAuthenticationMode.ApiKey;
@@ -22,9 +22,9 @@ public sealed class OpenSandboxClientOptions
             throw new InvalidOperationException($"{nameof(OpenSandboxClientOptions)}.{nameof(BaseUrl)} must be an absolute URL.");
         }
 
-        if (Timeout <= TimeSpan.Zero)
+        if (Timeout != System.Threading.Timeout.InfiniteTimeSpan && Timeout <= TimeSpan.Zero)
         {
-            throw new InvalidOperationException($"{nameof(OpenSandboxClientOptions)}.{nameof(Timeout)} must be greater than zero.");
+            throw new InvalidOperationException($"{nameof(OpenSandboxClientOptions)}.{nameof(Timeout)} must be greater than zero or {nameof(System.Threading.Timeout.InfiniteTimeSpan)}.");
         }
 
         if (WebSocketKeepAliveInterval < TimeSpan.Zero)

@@ -14,4 +14,6 @@ public sealed class OpenSandboxServerOptions
 public sealed class ProxyOptions
 {
     public int ActivityTimeoutMinutes { get; set; } = 10;
+    public int SignedUrlLifetimeMinutes { get; set; } = 10;
+    public string? SignedUrlSecret { get; set; }
 }

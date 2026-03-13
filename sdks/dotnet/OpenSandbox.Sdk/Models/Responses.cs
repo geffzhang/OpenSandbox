@@ -42,6 +42,7 @@ public sealed class SandboxEndpoint
     public string? Endpoint { get; set; }
     public string? Url { get; set; }
     public Dictionary<string, string>? Headers { get; set; }
+    public DateTimeOffset? ExpiresAt { get; set; }
 }
 
 public sealed class CommandExecutionResult

@@ -106,6 +106,21 @@ public sealed class OpenSandboxClientTests
         Assert.Throws<InvalidOperationException>(() => options.Validate());
     }
 
+    [Fact]
+    public void Options_AllowInfiniteRequestTimeout()
+    {
+        var options = new OpenSandboxClientOptions
+        {
+            BaseUrl = "http://localhost",
+            AuthenticationMode = OpenSandboxAuthenticationMode.ApiKey,
+            ApiKey = "test-key",
+            Timeout = System.Threading.Timeout.InfiniteTimeSpan
+        };
+
+        options.Validate();
+        Assert.Equal(System.Threading.Timeout.InfiniteTimeSpan, options.Timeout);
+    }
+
     private static async Task<WebApplication> CreateServerAsync(OpenSandboxAuthenticationMode mode)
     {
         var builder = WebApplication.CreateBuilder();

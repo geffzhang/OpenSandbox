@@ -9,13 +9,13 @@ const string defaultImage = "hejiale010426/openclaw:local";
 const string defaultCpu = "1000m";
 const string defaultMemory = "2Gi";
 
-var baseUrl = Environment.GetEnvironmentVariable("OPEN_SANDBOX_BASE_URL") ?? "http://localhost:8080";
+var baseUrl = Environment.GetEnvironmentVariable("OPEN_SANDBOX_BASE_URL") ?? "http://localhost:5237";
 var apiKey = Environment.GetEnvironmentVariable("OPEN_SANDBOX_API_KEY");
-var bearerToken = Environment.GetEnvironmentVariable("OPEN_SANDBOX_BEARER_TOKEN");
+var bearerToken = Environment.GetEnvironmentVariable("OPEN_SANDBOX_BEARER_TOKEN") ?? "dev-sandbox-key";
 var hostVolume = Environment.GetEnvironmentVariable("OPENCLAW_HOST_VOLUME") ?? "/data/openclaw";
 var dataDirectory = Environment.GetEnvironmentVariable("OPENCLAW_DATA_DIRECTORY") ?? "users/demo/main";
 var openClawImage = Environment.GetEnvironmentVariable("OPENCLAW_IMAGE") ?? defaultImage;
-var routinApiKey = Environment.GetEnvironmentVariable("OPENCLAW_ROUTIN_API_KEY") ?? Environment.GetEnvironmentVariable("ROUTIN_API_KEY");
+var routinApiKey = Environment.GetEnvironmentVariable("OPENCLAW_ROUTIN_API_KEY") ?? Environment.GetEnvironmentVariable("ROUTIN_API_KEY") ?? "test";
 var gatewayToken = Environment.GetEnvironmentVariable("OPENCLAW_GATEWAY_TOKEN") ?? $"oc_demo_{Guid.NewGuid():N}";
 var gatewayPort = ParseInt(Environment.GetEnvironmentVariable("OPENCLAW_GATEWAY_PORT"), defaultGatewayPort);
 
@@ -117,6 +117,10 @@ for (var attempt = 1; attempt <= 20; attempt++)
 if (!string.IsNullOrWhiteSpace(endpoint?.Url))
 {
     Console.WriteLine($"OpenClaw URL: {endpoint.Url}");
+    if (endpoint.ExpiresAt.HasValue)
+    {
+        Console.WriteLine($"Proxy expires at (UTC): {endpoint.ExpiresAt.Value:O}");
+    }
     Console.WriteLine($"Gateway token: {gatewayToken}");
 }
 else

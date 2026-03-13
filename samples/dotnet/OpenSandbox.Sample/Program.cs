@@ -41,7 +41,12 @@ if (string.Equals(sampleMode, "openclaw", StringComparison.OrdinalIgnoreCase))
     Console.WriteLine($"Created OpenClaw sandbox: {created.Id}");
     Console.WriteLine($"State: {created.Status?.State ?? "unknown"}");
     Console.WriteLine($"Terminal WS: {client.BuildTerminalWebSocketUri(created.Id)}");
-    Console.WriteLine("You can then query the gateway endpoint on port 18789.");
+    var endpoint = await client.GetSandboxEndpointAsync(created.Id, 18789);
+    Console.WriteLine($"Proxy URL: {endpoint?.Url ?? "not ready"}");
+    if (endpoint?.ExpiresAt.HasValue == true)
+    {
+        Console.WriteLine($"Proxy expires at (UTC): {endpoint.ExpiresAt.Value:O}");
+    }
 }
 else
 {

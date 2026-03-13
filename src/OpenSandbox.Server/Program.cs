@@ -20,6 +20,7 @@ builder.Services.Configure<DockerRuntimeOptions>(builder.Configuration.GetSectio
 builder.Services.Configure<FileSystemStoreOptions>(builder.Configuration.GetSection(FileSystemStoreOptions.SectionName));
 builder.Services.AddSingleton<ISandboxStore, FileSystemSandboxStore>();
 builder.Services.AddSingleton<ISandboxRuntime, DockerSandboxRuntime>();
+builder.Services.AddSingleton<SignedProxyUrlService>();
 builder.Services.AddSingleton<OpenSandboxService>();
 builder.Services.AddHostedService<SandboxExpirationBackgroundService>();
 builder.Services.AddHealthChecks();
@@ -73,6 +74,12 @@ app.Use(async (context, next) =>
     }
 
     var options = context.RequestServices.GetRequiredService<IOptions<OpenSandboxServerOptions>>().Value;
+    if (context.RequestServices.GetRequiredService<SignedProxyUrlService>().TryAuthorize(context))
+    {
+        await next();
+        return;
+    }
+
     if (options.Tokens.Count == 0)
     {
         await next();

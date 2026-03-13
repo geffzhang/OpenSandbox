@@ -4,6 +4,7 @@ using OpenSandbox.Abstractions.Contracts;
 using OpenSandbox.Abstractions.Services;
 using OpenSandbox.Server.Contracts;
 using OpenSandbox.Server.Options;
+using OpenSandbox.Server.Proxy;
 
 namespace OpenSandbox.Server.Services;
 
@@ -13,17 +14,20 @@ public sealed class OpenSandboxService
     private readonly ISandboxStore _store;
     private readonly ILogger<OpenSandboxService> _logger;
     private readonly OpenSandboxServerOptions _options;
+    private readonly SignedProxyUrlService _signedProxyUrlService;
 
     public OpenSandboxService(
         ISandboxRuntime runtime,
         ISandboxStore store,
         IOptions<OpenSandboxServerOptions> options,
-        ILogger<OpenSandboxService> logger)
+        ILogger<OpenSandboxService> logger,
+        SignedProxyUrlService signedProxyUrlService)
     {
         _runtime = runtime;
         _store = store;
         _options = options.Value;
         _logger = logger;
+        _signedProxyUrlService = signedProxyUrlService;
     }
 
     public async Task<CreateSandboxResponse> CreateAsync(CreateSandboxRequest request, CancellationToken cancellationToken)
@@ -273,12 +277,13 @@ public sealed class OpenSandboxService
 
         if (useServerProxy)
         {
-            var path = $"{httpContext.Request.PathBase}/v1/sandboxes/{record.Id}/proxy/{port}/";
+            var access = _signedProxyUrlService.CreateAccess(httpContext, record.Id, port);
             return new EndpointResponse
             {
-                EndpointAddress = $"{httpContext.Request.Host}{path}",
-                Url = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}{path}",
-                Headers = BuildAuthHeaders(httpContext)
+                EndpointAddress = $"{httpContext.Request.Host}{access.RelativePathAndQuery}",
+                Url = access.AbsoluteUrl,
+                Headers = BuildAuthHeaders(httpContext),
+                ExpiresAt = access.ExpiresAt
             };
         }
 

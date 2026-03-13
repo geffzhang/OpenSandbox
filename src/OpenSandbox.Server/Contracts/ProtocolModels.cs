@@ -118,6 +118,9 @@ public sealed class EndpointResponse
 
     [JsonPropertyName("url")]
     public string? Url { get; set; }
+
+    [JsonPropertyName("expiresAt")]
+    public DateTimeOffset? ExpiresAt { get; set; }
 }
 
 public sealed class SandboxUsageResponse
