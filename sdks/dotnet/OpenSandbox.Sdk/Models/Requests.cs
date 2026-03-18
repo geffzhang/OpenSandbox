@@ -20,3 +20,14 @@ public sealed class CreateSandboxRequest
     public List<SandboxVolume>? Volumes { get; set; }
     public Dictionary<string, object?>? Extensions { get; set; }
 }
+
+public sealed class WriteSandboxFileRequest
+{
+    public string Path { get; set; } = string.Empty;
+    public string ContentBase64 { get; set; } = string.Empty;
+}
+
+public sealed class CreateSandboxDirectoryRequest
+{
+    public string Path { get; set; } = string.Empty;
+}

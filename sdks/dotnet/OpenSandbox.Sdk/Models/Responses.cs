@@ -56,3 +56,25 @@ public sealed class RenewSandboxExpirationResult
 {
     public DateTimeOffset? ExpiresAt { get; set; }
 }
+
+public sealed class SandboxFileEntry
+{
+    public string Name { get; set; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
+    public bool IsDirectory { get; set; }
+    public long? SizeBytes { get; set; }
+    public DateTimeOffset? LastModifiedAt { get; set; }
+}
+
+public sealed class SandboxFileListResult
+{
+    public string Path { get; set; } = "/";
+    public List<SandboxFileEntry> Entries { get; set; } = new();
+}
+
+public sealed class SandboxFileReadResult
+{
+    public string Path { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
+    public string ContentBase64 { get; set; } = string.Empty;
+}

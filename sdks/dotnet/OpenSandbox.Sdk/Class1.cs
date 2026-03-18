@@ -128,6 +128,97 @@ public sealed class OpenSandboxClient : IOpenSandboxClient
         return SendOptionalAsync<CommandExecutionResult>(HttpMethod.Post, $"sandboxes/{Uri.EscapeDataString(sandboxId)}/exec", new { command }, "Execute command", cancellationToken);
     }
 
+    public Task<SandboxFileListResult?> ListFilesAsync(string sandboxId, string path, CancellationToken cancellationToken = default)
+    {
+        EnsureSandboxId(sandboxId);
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            path = "/";
+        }
+
+        return SendOptionalAsync<SandboxFileListResult>(HttpMethod.Get, $"sandboxes/{Uri.EscapeDataString(sandboxId)}/files?path={Uri.EscapeDataString(path)}", null, "List files", cancellationToken);
+    }
+
+    public Task<SandboxFileReadResult?> ReadFileAsync(string sandboxId, string path, CancellationToken cancellationToken = default)
+    {
+        EnsureSandboxId(sandboxId);
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new InvalidOperationException("Path is required.");
+        }
+
+        return SendOptionalAsync<SandboxFileReadResult>(HttpMethod.Get, $"sandboxes/{Uri.EscapeDataString(sandboxId)}/files/content?path={Uri.EscapeDataString(path)}", null, "Read file", cancellationToken);
+    }
+
+    public async Task<bool> WriteFileAsync(string sandboxId, WriteSandboxFileRequest request, CancellationToken cancellationToken = default)
+    {
+        EnsureSandboxId(sandboxId);
+        if (request == null || string.IsNullOrWhiteSpace(request.Path))
+        {
+            throw new InvalidOperationException("Path is required.");
+        }
+
+        using var httpRequest = CreateRequest(HttpMethod.Post, $"sandboxes/{Uri.EscapeDataString(sandboxId)}/files/content", request);
+        using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw await CreateExceptionAsync("Write file", response, cancellationToken);
+        }
+
+        return true;
+    }
+
+    public async Task<bool> CreateDirectoryAsync(string sandboxId, CreateSandboxDirectoryRequest request, CancellationToken cancellationToken = default)
+    {
+        EnsureSandboxId(sandboxId);
+        if (request == null || string.IsNullOrWhiteSpace(request.Path))
+        {
+            throw new InvalidOperationException("Path is required.");
+        }
+
+        using var httpRequest = CreateRequest(HttpMethod.Post, $"sandboxes/{Uri.EscapeDataString(sandboxId)}/directories", request);
+        using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw await CreateExceptionAsync("Create directory", response, cancellationToken);
+        }
+
+        return true;
+    }
+
+    public async Task<bool> DeletePathAsync(string sandboxId, string path, bool recursive = false, CancellationToken cancellationToken = default)
+    {
+        EnsureSandboxId(sandboxId);
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new InvalidOperationException("Path is required.");
+        }
+
+        using var request = CreateRequest(HttpMethod.Delete, $"sandboxes/{Uri.EscapeDataString(sandboxId)}/files?path={Uri.EscapeDataString(path)}&recursive={recursive.ToString().ToLowerInvariant()}", null);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw await CreateExceptionAsync("Delete path", response, cancellationToken);
+        }
+
+        return true;
+    }
+
     public Task<Sandbox?> PauseSandboxAsync(string sandboxId, CancellationToken cancellationToken = default)
     {
         EnsureSandboxId(sandboxId);

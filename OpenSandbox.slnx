@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/OpenClaw/">
+    <Project Path="OpenClaw/OpenSandbox.OpenClaw/OpenSandbox.OpenClaw.csproj" />
+  </Folder>
   <Folder Name="/samples/" />
   <Folder Name="/samples/dotnet/">
     <Project Path="samples/dotnet/OpenClaw.Sample/OpenClaw.Sample.csproj" />

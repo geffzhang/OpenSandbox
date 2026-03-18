@@ -145,13 +145,75 @@ v1.MapGet("/sandboxes/{id}/stats", async (string id, OpenSandboxService sandboxS
     return result == null ? Results.NotFound() : Results.Ok(result);
 });
 
+v1.MapGet("/sandboxes/{id}/logs", async (string id, HttpContext httpContext, OpenSandboxService sandboxService, CancellationToken cancellationToken) =>
+{
+    var tail = ParseInt(httpContext.Request.Query["tail"].ToString(), 200);
+    var result = await sandboxService.GetLogsAsync(id, tail, cancellationToken);
+    return result == null ? Results.NotFound() : Results.Ok(result);
+});
+
 v1.MapPost("/sandboxes/{id}/exec", async (string id, ExecuteCommandRequest request, OpenSandboxService sandboxService, CancellationToken cancellationToken) =>
 {
     var result = await sandboxService.ExecuteCommandAsync(id, request.Command, cancellationToken);
     return result == null ? Results.NotFound() : Results.Ok(result);
 });
 
+v1.MapGet("/sandboxes/{id}/files", async (string id, HttpContext httpContext, OpenSandboxService sandboxService, CancellationToken cancellationToken) =>
+{
+    var path = httpContext.Request.Query["path"].ToString();
+    var result = await sandboxService.ListFilesAsync(id, path, cancellationToken);
+    return result == null ? Results.NotFound() : Results.Ok(result);
+});
+
+v1.MapGet("/sandboxes/{id}/files/content", async (string id, HttpContext httpContext, OpenSandboxService sandboxService, CancellationToken cancellationToken) =>
+{
+    var path = httpContext.Request.Query["path"].ToString();
+    if (string.IsNullOrWhiteSpace(path))
+    {
+        return Results.BadRequest(new { error = new { code = "InvalidArgument", message = "path is required." } });
+    }
+
+    var result = await sandboxService.ReadFileAsync(id, path, cancellationToken);
+    return result == null ? Results.NotFound() : Results.Ok(result);
+});
+
+v1.MapPost("/sandboxes/{id}/files/content", async (string id, WriteFileRequest request, OpenSandboxService sandboxService, CancellationToken cancellationToken) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Path))
+    {
+        return Results.BadRequest(new { error = new { code = "InvalidArgument", message = "path is required." } });
+    }
+
+    var ok = await sandboxService.WriteFileAsync(id, request, cancellationToken);
+    return ok ? Results.Ok(new { success = true }) : Results.NotFound();
+});
+
+v1.MapPost("/sandboxes/{id}/directories", async (string id, CreateDirectoryRequest request, OpenSandboxService sandboxService, CancellationToken cancellationToken) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Path))
+    {
+        return Results.BadRequest(new { error = new { code = "InvalidArgument", message = "path is required." } });
+    }
+
+    var ok = await sandboxService.CreateDirectoryAsync(id, request, cancellationToken);
+    return ok ? Results.Ok(new { success = true }) : Results.NotFound();
+});
+
+v1.MapDelete("/sandboxes/{id}/files", async (string id, HttpContext httpContext, OpenSandboxService sandboxService, CancellationToken cancellationToken) =>
+{
+    var path = httpContext.Request.Query["path"].ToString();
+    if (string.IsNullOrWhiteSpace(path))
+    {
+        return Results.BadRequest(new { error = new { code = "InvalidArgument", message = "path is required." } });
+    }
+
+    var recursive = bool.TryParse(httpContext.Request.Query["recursive"].ToString(), out var parsed) && parsed;
+    var ok = await sandboxService.DeletePathAsync(id, path, recursive, cancellationToken);
+    return ok ? Results.NoContent() : Results.NotFound();
+});
+
 app.Map("/v1/sandboxes/{id}/terminal/ws", TerminalWebSocketAsync);
+app.Map("/v1/sandboxes/{id}/logs/ws", LogsWebSocketAsync);
 
 v1.MapDelete("/sandboxes/{id}", async (string id, OpenSandboxService sandboxService, CancellationToken cancellationToken) =>
 {
@@ -216,6 +278,24 @@ static async Task<IResult> TerminalWebSocketAsync(string id, HttpContext httpCon
 
     using var webSocket = await httpContext.WebSockets.AcceptWebSocketAsync();
     await runtime.RunTerminalSessionAsync(containerName, webSocket, cancellationToken);
+    return Results.Empty;
+}
+
+static async Task<IResult> LogsWebSocketAsync(string id, HttpContext httpContext, OpenSandboxService sandboxService, ISandboxRuntime runtime, CancellationToken cancellationToken)
+{
+    if (!httpContext.WebSockets.IsWebSocketRequest)
+    {
+        return Results.BadRequest(new { error = new { code = "InvalidArgument", message = "WebSocket request is required." } });
+    }
+
+    var containerName = await sandboxService.GetLogsContainerNameAsync(id, cancellationToken);
+    if (string.IsNullOrWhiteSpace(containerName))
+    {
+        return Results.NotFound();
+    }
+
+    using var webSocket = await httpContext.WebSockets.AcceptWebSocketAsync();
+    await runtime.StreamLogsAsync(containerName, webSocket, cancellationToken);
     return Results.Empty;
 }
 

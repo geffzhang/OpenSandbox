@@ -247,26 +247,132 @@ public sealed class DockerSandboxRuntime : ISandboxRuntime
         };
     }
 
+    public async Task<IReadOnlyCollection<SandboxFileEntry>> ListFilesAsync(string containerName, string path, CancellationToken cancellationToken)
+    {
+        var normalizedPath = NormalizeContainerPath(path);
+        var command = $"target={EscapeShellArgument(normalizedPath)}; if [ ! -d \"$target\" ]; then exit 2; fi; for entry in \"$target\"/* \"$target\"/.[!.]* \"$target\"/..?*; do [ -e \"$entry\" ] || continue; name=$(basename \"$entry\"); if [ -d \"$entry\" ]; then modified=$(stat -c %Y \"$entry\" 2>/dev/null || echo 0); printf 'D\\t%s\\t%s\\n' \"$name\" \"$modified\"; else size=$(wc -c < \"$entry\" 2>/dev/null || echo 0); modified=$(stat -c %Y \"$entry\" 2>/dev/null || echo 0); printf 'F\\t%s\\t%s\\t%s\\n' \"$name\" \"$size\" \"$modified\"; fi; done";
+        var result = await ExecuteProcessAsync(["exec", containerName, "sh", "-lc", command], cancellationToken, throwOnError: false);
+        if (result.ExitCode != 0)
+        {
+            if (ContainsNoSuchContainer(result.StdErr) || result.ExitCode == 2)
+            {
+                return [];
+            }
+
+            throw new InvalidOperationException($"Failed to list files: {result.StdErr}");
+        }
+
+        var items = new List<SandboxFileEntry>();
+        var lines = result.StdOut.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            var parts = line.Split('\t');
+            if (parts.Length < 3)
+            {
+                continue;
+            }
+
+            var isDirectory = string.Equals(parts[0], "D", StringComparison.OrdinalIgnoreCase);
+            var name = parts[1];
+            long? size = !isDirectory && parts.Length >= 4 && long.TryParse(parts[2], out var parsedSize) ? parsedSize : null;
+            var modifiedRaw = isDirectory ? parts[2] : parts[3];
+            DateTimeOffset? modifiedAt = long.TryParse(modifiedRaw, out var unixSeconds) && unixSeconds > 0
+                ? DateTimeOffset.FromUnixTimeSeconds(unixSeconds)
+                : null;
+
+            items.Add(new SandboxFileEntry
+            {
+                Name = name,
+                Path = CombineContainerPath(normalizedPath, name),
+                IsDirectory = isDirectory,
+                SizeBytes = size,
+                LastModifiedAt = modifiedAt
+            });
+        }
+
+        return items.OrderByDescending(item => item.IsDirectory).ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    public async Task<SandboxFileReadResult?> ReadFileAsync(string containerName, string path, CancellationToken cancellationToken)
+    {
+        var normalizedPath = NormalizeContainerPath(path);
+        var tempRoot = Path.Combine(Path.GetTempPath(), "opensandbox-read", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempRoot);
+        try
+        {
+            var destinationPath = Path.Combine(tempRoot, Path.GetFileName(normalizedPath.TrimEnd('/')));
+            var result = await ExecuteProcessAsync(["cp", $"{containerName}:{normalizedPath}", destinationPath], cancellationToken, throwOnError: false);
+            if (result.ExitCode != 0)
+            {
+                if (ContainsNoSuchContainer(result.StdErr) || ContainsNoSuchPath(result.StdErr))
+                {
+                    return null;
+                }
+
+                throw new InvalidOperationException($"Failed to read file: {result.StdErr}");
+            }
+
+            if (!File.Exists(destinationPath))
+            {
+                return null;
+            }
+
+            return new SandboxFileReadResult
+            {
+                Path = normalizedPath,
+                FileName = Path.GetFileName(destinationPath),
+                Content = await File.ReadAllBytesAsync(destinationPath, cancellationToken)
+            };
+        }
+        finally
+        {
+            TryDeleteDirectory(tempRoot);
+        }
+    }
+
+    public async Task WriteFileAsync(string containerName, string path, byte[] content, CancellationToken cancellationToken)
+    {
+        var normalizedPath = NormalizeContainerPath(path);
+        var parentDirectory = Path.GetDirectoryName(normalizedPath.Replace('/', Path.DirectorySeparatorChar))?.Replace(Path.DirectorySeparatorChar, '/') ?? "/";
+        var tempRoot = Path.Combine(Path.GetTempPath(), "opensandbox-write", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempRoot);
+        var tempFile = Path.Combine(tempRoot, Path.GetFileName(normalizedPath));
+        try
+        {
+            await File.WriteAllBytesAsync(tempFile, content, cancellationToken);
+            await ExecuteProcessAsync(["exec", containerName, "sh", "-lc", $"mkdir -p {EscapeShellArgument(parentDirectory)}"], cancellationToken, throwOnError: true);
+            var copyResult = await ExecuteProcessAsync(["cp", tempFile, $"{containerName}:{normalizedPath}"], cancellationToken, throwOnError: false);
+            if (copyResult.ExitCode != 0)
+            {
+                throw new InvalidOperationException($"Failed to write file: {copyResult.StdErr}");
+            }
+        }
+        finally
+        {
+            TryDeleteDirectory(tempRoot);
+        }
+    }
+
+    public async Task CreateDirectoryAsync(string containerName, string path, CancellationToken cancellationToken)
+    {
+        var normalizedPath = NormalizeContainerPath(path);
+        await ExecuteProcessAsync(["exec", containerName, "sh", "-lc", $"mkdir -p {EscapeShellArgument(normalizedPath)}"], cancellationToken, throwOnError: true);
+    }
+
+    public async Task DeletePathAsync(string containerName, string path, bool recursive, CancellationToken cancellationToken)
+    {
+        var normalizedPath = NormalizeContainerPath(path);
+        var flag = recursive ? "-rf" : "-f";
+        var result = await ExecuteProcessAsync(["exec", containerName, "sh", "-lc", $"rm {flag} {EscapeShellArgument(normalizedPath)}"], cancellationToken, throwOnError: false);
+        if (result.ExitCode != 0 && !ContainsNoSuchPath(result.StdErr) && !ContainsNoSuchContainer(result.StdErr))
+        {
+            throw new InvalidOperationException($"Failed to delete path: {result.StdErr}");
+        }
+    }
+
     public async Task RunTerminalSessionAsync(string containerName, WebSocket webSocket, CancellationToken cancellationToken)
     {
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = _options.DockerCommand,
-            RedirectStandardInput = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-        startInfo.ArgumentList.Add("exec");
-        startInfo.ArgumentList.Add("-i");
-        startInfo.ArgumentList.Add(containerName);
-        startInfo.ArgumentList.Add("sh");
-        startInfo.ArgumentList.Add("-lc");
-        startInfo.ArgumentList.Add("export TERM=xterm-256color; if command -v bash >/dev/null 2>&1; then exec bash -i; else exec sh -i; fi");
-
-        using var process = new Process { StartInfo = startInfo };
-        process.Start();
+        using var process = StartInteractiveProcess(["exec", "-i", containerName, "sh", "-lc", "export TERM=xterm-256color; if command -v bash >/dev/null 2>&1; then exec bash -i; else exec sh -i; fi"]);
 
         using var sendLock = new SemaphoreSlim(1, 1);
         var stdoutTask = PumpStreamToWebSocketAsync(process.StandardOutput.BaseStream, webSocket, sendLock, cancellationToken);
@@ -298,24 +404,59 @@ public sealed class DockerSandboxRuntime : ISandboxRuntime
         }
     }
 
-    private async Task<ProcessResult> ExecuteProcessAsync(IReadOnlyList<string> arguments, CancellationToken cancellationToken, bool throwOnError)
+    public async Task<IReadOnlyList<string>?> GetLogsAsync(string containerName, int tail, CancellationToken cancellationToken)
     {
-        var startInfo = new ProcessStartInfo
+        var normalizedTail = Math.Clamp(tail, 1, 2000);
+        var result = await ExecuteProcessAsync(["logs", "--tail", normalizedTail.ToString(CultureInfo.InvariantCulture), containerName], cancellationToken, throwOnError: false);
+        if (result.ExitCode != 0)
         {
-            FileName = _options.DockerCommand,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
+            if (ContainsNoSuchContainer(result.StdErr))
+            {
+                return null;
+            }
 
-        foreach (var argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
+            throw new InvalidOperationException($"Failed to read Docker logs: {result.StdErr}");
         }
 
-        using var process = new Process { StartInfo = startInfo };
-        process.Start();
+        return result.StdOut
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .ToList();
+    }
+
+    public async Task StreamLogsAsync(string containerName, WebSocket webSocket, CancellationToken cancellationToken)
+    {
+        using var process = StartInteractiveProcess(["logs", "-f", "--tail", "200", containerName], redirectInput: false);
+        using var sendLock = new SemaphoreSlim(1, 1);
+        var stdoutTask = PumpStreamToWebSocketAsync(process.StandardOutput.BaseStream, webSocket, sendLock, cancellationToken);
+        var stderrTask = PumpStreamToWebSocketAsync(process.StandardError.BaseStream, webSocket, sendLock, cancellationToken);
+        await Task.WhenAny(stdoutTask, stderrTask, process.WaitForExitAsync(cancellationToken));
+
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch
+        {
+        }
+
+        if (webSocket.State is WebSocketState.Open or WebSocketState.CloseReceived)
+        {
+            try
+            {
+                await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "logs closed", CancellationToken.None);
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    private async Task<ProcessResult> ExecuteProcessAsync(IReadOnlyList<string> arguments, CancellationToken cancellationToken, bool throwOnError)
+    {
+        using var process = StartInteractiveProcess(arguments, redirectInput: false);
 
         var stdOutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
         var stdErrTask = process.StandardError.ReadToEndAsync(cancellationToken);
@@ -330,6 +471,28 @@ public sealed class DockerSandboxRuntime : ISandboxRuntime
         }
 
         return new ProcessResult(process.ExitCode, stdOut, stdErr);
+    }
+
+    private Process StartInteractiveProcess(IReadOnlyList<string> arguments, bool redirectInput = true)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = _options.DockerCommand,
+            RedirectStandardInput = redirectInput,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        foreach (var argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        var process = new Process { StartInfo = startInfo };
+        process.Start();
+        return process;
     }
 
     private static SandboxRuntimeState MapState(DockerStateResponse? state)
@@ -490,5 +653,54 @@ public sealed class DockerSandboxRuntime : ISandboxRuntime
     private static bool ContainsNotPaused(string message)
     {
         return message.Contains("is not paused", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ContainsNoSuchPath(string message)
+    {
+        return message.Contains("Could not find the file", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("No such file or directory", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("file does not exist", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeContainerPath(string path)
+    {
+        var normalized = string.IsNullOrWhiteSpace(path) ? "/" : path.Trim();
+        normalized = normalized.Replace('\\', '/');
+        if (!normalized.StartsWith('/'))
+        {
+            normalized = "/" + normalized;
+        }
+
+        return normalized.Length > 1 ? normalized.TrimEnd('/') : normalized;
+    }
+
+    private static string CombineContainerPath(string parent, string child)
+    {
+        var normalizedParent = NormalizeContainerPath(parent);
+        if (normalizedParent == "/")
+        {
+            return "/" + child.TrimStart('/');
+        }
+
+        return normalizedParent + "/" + child.TrimStart('/');
+    }
+
+    private static string EscapeShellArgument(string value)
+    {
+        return $"'{value.Replace("'", "'\\''")}'";
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
+        }
+        catch
+        {
+        }
     }
 }

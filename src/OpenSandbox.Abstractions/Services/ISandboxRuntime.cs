@@ -13,5 +13,12 @@ public interface ISandboxRuntime
     Task<int?> GetPublishedPortAsync(string containerName, int containerPort, CancellationToken cancellationToken);
     Task<SandboxRuntimeUsage?> GetUsageAsync(string containerName, CancellationToken cancellationToken);
     Task<SandboxCommandResult?> ExecuteAsync(string containerName, string command, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<SandboxFileEntry>> ListFilesAsync(string containerName, string path, CancellationToken cancellationToken);
+    Task<SandboxFileReadResult?> ReadFileAsync(string containerName, string path, CancellationToken cancellationToken);
+    Task WriteFileAsync(string containerName, string path, byte[] content, CancellationToken cancellationToken);
+    Task CreateDirectoryAsync(string containerName, string path, CancellationToken cancellationToken);
+    Task DeletePathAsync(string containerName, string path, bool recursive, CancellationToken cancellationToken);
     Task RunTerminalSessionAsync(string containerName, WebSocket webSocket, CancellationToken cancellationToken);
+    Task<IReadOnlyList<string>?> GetLogsAsync(string containerName, int tail, CancellationToken cancellationToken);
+    Task StreamLogsAsync(string containerName, WebSocket webSocket, CancellationToken cancellationToken);
 }

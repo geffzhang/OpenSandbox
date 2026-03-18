@@ -41,6 +41,7 @@ public sealed class CreateSandboxRequest
     public ImageSpec? Image { get; set; }
     public List<string>? Entrypoint { get; set; }
     public int Timeout { get; set; }
+    public bool NeverExpires { get; set; }
     public ResourceLimits? ResourceLimits { get; set; }
     public Dictionary<string, string>? Env { get; set; }
     public Dictionary<string, string>? Metadata { get; set; }
@@ -59,21 +60,25 @@ public sealed class SandboxStatus
 public sealed class SandboxInfoResponse
 {
     public string Id { get; set; } = string.Empty;
+    public string? ContainerId { get; set; }
     public ImageSpec? Image { get; set; }
     public List<string> Entrypoint { get; set; } = new();
     public Dictionary<string, string>? Metadata { get; set; }
     public SandboxStatus? Status { get; set; }
     public DateTimeOffset? CreatedAt { get; set; }
     public DateTimeOffset? ExpiresAt { get; set; }
+    public bool NeverExpires { get; set; }
 }
 
 public sealed class CreateSandboxResponse
 {
     public string Id { get; set; } = string.Empty;
+    public string? ContainerId { get; set; }
     public SandboxStatus? Status { get; set; }
     public Dictionary<string, string>? Metadata { get; set; }
     public DateTimeOffset? ExpiresAt { get; set; }
     public DateTimeOffset? CreatedAt { get; set; }
+    public bool NeverExpires { get; set; }
     public List<string> Entrypoint { get; set; } = new();
 }
 
@@ -100,6 +105,7 @@ public sealed class RenewSandboxExpirationRequest
 public sealed class RenewSandboxExpirationResponse
 {
     public DateTimeOffset? ExpiresAt { get; set; }
+    public bool NeverExpires { get; set; }
 }
 
 public sealed class EndpointResponse
@@ -143,4 +149,42 @@ public sealed class ExecuteCommandResponse
     public int ExitCode { get; set; }
     public string StdOut { get; set; } = string.Empty;
     public string StdErr { get; set; } = string.Empty;
+}
+
+public sealed class ListFilesResponse
+{
+    public string Path { get; set; } = "/";
+    public List<FileEntryResponse> Entries { get; set; } = new();
+}
+
+public sealed class FileEntryResponse
+{
+    public string Name { get; set; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
+    public bool IsDirectory { get; set; }
+    public long? SizeBytes { get; set; }
+    public DateTimeOffset? LastModifiedAt { get; set; }
+}
+
+public sealed class ReadFileResponse
+{
+    public string Path { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
+    public string ContentBase64 { get; set; } = string.Empty;
+}
+
+public sealed class WriteFileRequest
+{
+    public string Path { get; set; } = string.Empty;
+    public string ContentBase64 { get; set; } = string.Empty;
+}
+
+public sealed class CreateDirectoryRequest
+{
+    public string Path { get; set; } = string.Empty;
+}
+
+public sealed class SandboxLogsResponse
+{
+    public List<string> Lines { get; set; } = new();
 }
