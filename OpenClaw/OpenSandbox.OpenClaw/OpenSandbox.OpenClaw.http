@@ -1,0 +1,6 @@
+@OpenSandbox.OpenClaw_HostAddress = http://localhost:5091
+
+GET {{OpenSandbox.OpenClaw_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
